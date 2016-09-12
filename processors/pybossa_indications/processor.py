@@ -48,51 +48,46 @@ def process(conf, conn):
 def _create_tasks(rows):
     tasks = []
     for key, group in groupby(rows, lambda x: x['id']):
-        task = {}
-        task['documents'] = []
-
-        for doc in group:
-            task['supplement_number'] = str(doc['supplement_number'])
-            task['approval_type'] = str(doc['type'])
-            task['approval_id'] = str(doc['id'])
-            task['meta_id'] = str(doc['meta_id'])
-            task['notes'] = doc['notes'] or ""
-            task['documents'].append({
-                'name': doc['name'],
-                'url': doc['url']
-            })
+        group = list(group)
+        first = group[0]
+        print(str(first['meta_id']))
+        task = {
+            'supplement_number': str(first['supplement_number']),
+            'approval_type': first['type'],
+            'approval_id': str(first['id']),
+            'meta_id': str(first['meta_id']),
+            'notes': first.get('notes', '')
+        }
+        task['documents'] = [{'name': doc['name'], 'url': doc['url']}
+                             for doc in group]
         tasks.append(task)
-    logger.debug('{} tasks in the database'.format(len(tasks)))
 
+    logger.debug('{} tasks in the database'.format(len(tasks)))
     _submit_tasks(tasks)
 
 
 def _pybossa_rate_limitation(endpoint):
     # This should be called before actual requests to avoid getting HTTP 429s
     res = requests.get('{}/api/{}'.format(PYBOSSA_URL, endpoint))
-    if int(res.headers['X-RateLimit-Remaining']) < 30:
+    if int(res.headers['X-RateLimit-Remaining']) < 10:
         logger.warn('Rate limit reached, will sleep for 5 minutes')
         time.sleep(300)  # Sleep for 5 minutes
 
 
 def _get_existing_ids(PROJECT_ID):
-    existing_ids = []
     tasks = []
-    offset = 0
     limit = 100
 
     # Make sure we have enough requests left
-    _pybossa_rate_limitation('task')
     while True:
-        collection = pbc.get_tasks(PROJECT_ID, limit=limit, offset=offset)
-        if len(collection) > 0:
-            tasks.extend(collection)
-            offset += limit
-        else:
+        _pybossa_rate_limitation('task')
+        last_id = tasks[-1].id if tasks else None
+        collection = pbc.get_tasks(PROJECT_ID, limit=limit, last_id=last_id)
+        tasks.extend(collection)
+        if not collection:
             break
-    for task in tasks:
-        existing_ids.append(task.info['meta_id'])
-    return existing_ids
+    logger.debug('{} tasks on the server'.format(len(tasks)))
+    return [task.info['meta_id'] for task in tasks]
 
 
 def _submit_tasks(tasks):
@@ -103,7 +98,7 @@ def _submit_tasks(tasks):
 
     # Get existing IDs
     existing_ids = _get_existing_ids(PROJECT_ID)
-    if not isinstance(existing_ids, list):
+    if not existing_ids:
         logger.error('Cannot get the list of existing task IDs')
 
     cleaned_tasks = [t for t in tasks if t['meta_id'] not in existing_ids]
