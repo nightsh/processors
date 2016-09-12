@@ -22,19 +22,21 @@ def process(conf, conn):
 
     # Get stuff from the DB
     query = """
-        SELECT
-            documents.id as meta_id,
+        SELECT documents.id AS meta_id,
             fda_approvals.id,
             documents.name,
-            documents.url,
+            files.url,
             fda_approvals.type,
             fda_approvals.notes,
             fda_approvals.supplement_number
         FROM documents
         INNER JOIN fda_approvals ON documents.fda_approval_id = fda_approvals.id
+        INNER JOIN files ON documents.file_id = files.id
         WHERE documents.url IS NOT NULL
         AND fda_approvals.type = 'New or Modified Indication'
-        GROUP BY fda_approvals.id, documents.id
+        GROUP BY fda_approvals.id,
+                documents.id,
+                files.id
         ORDER BY fda_approvals.id
     """
 
