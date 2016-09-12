@@ -15,7 +15,7 @@ logger = logging.getLogger(__name__)
 
 PYBOSSA_URL = os.environ['PYBOSSA_URL']
 PYBOSSA_API_KEY = os.environ['PYBOSSA_API_KEY']
-project_id = 4228
+PROJECT_ID = os.environ['PYBOSSA_PROJECT_INDICATIONS']
 
 
 def process(conf, conn):
@@ -75,12 +75,12 @@ def pybossa_rate_limitation(endpoint):
     # This should be called before actual requests to avoid getting HTTP 429s
     res = requests.get('{}/api/task'.format(PYBOSSA_URL))
     if int(res.headers['X-RateLimit-Remaining']) < 30:
-        logger.warn('Rate limit reached, will sleep for 2 minutes')
-        time.sleep(120)  # Sleep for 2 minutes
+        logger.warn('Rate limit reached, will sleep for 5 minutes')
+        time.sleep(300)  # Sleep for 2 minutes
         return
 
 
-def get_existing_ids(project_id):
+def get_existing_ids(PROJECT_ID):
     existing_ids = []
     tasks = []
     offset = 0
@@ -89,10 +89,9 @@ def get_existing_ids(project_id):
     # Make sure we have enough requests left
     pybossa_rate_limitation('task')
     while True:
-        collection = pbc.get_tasks(project_id, limit=limit, offset=offset)
+        collection = pbc.get_tasks(PROJECT_ID, limit=limit, offset=offset)
         if len(collection) > 0:
             tasks.extend(collection)
-            print(len(tasks))
             offset += limit
         else:
             break
@@ -108,7 +107,7 @@ def submit_tasks(tasks):
     pbc.set('api_key', PYBOSSA_API_KEY)
 
     # Get existing IDs
-    existing_ids = get_existing_ids(project_id)
+    existing_ids = get_existing_ids(PROJECT_ID)
     if not isinstance(existing_ids, list):
         logger.error('Cannot get the list of existing task IDs')
 
@@ -117,11 +116,11 @@ def submit_tasks(tasks):
     logger.debug('{} tasks to be created'.format(len(cleaned_tasks)))
 
     for task in cleaned_tasks:
-        submit_task(task, project_id)
+        submit_task(task, PROJECT_ID)
 
 
-def submit_task(task, project_id):
-    res = pbc.create_task(project_id, task)
-    if hasattr(res, 'status_code') and res['status_code'] == 429:
-        pybossa_rate_limitation()
-        submit_task(task, project_id)
+def submit_task(task, PROJECT_ID):
+    res = pbc.create_task(PROJECT_ID, task)
+    if isinstance(res, dict) and res['status_code'] == 429:
+        pybossa_rate_limitation('task')
+        submit_task(task, PROJECT_ID)
