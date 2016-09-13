@@ -262,6 +262,9 @@ pybossa-indications:
     DATABASE_URL:
     EXPLORERDB_URL:
     LOGGING_URL:
+    PYBOSSA_URL:
+    PYBOSSA_API_KEY:
+    PYBOSSA_PROJECT_INDICATIONS:
   tags:
     - opentrials
 
