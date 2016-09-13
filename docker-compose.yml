@@ -106,6 +106,12 @@ pubmed-linker:
     file: docker-cloud.yml
   restart: 'no'
 
+pybossa-indications:
+  extends:
+    service: pybossa-indications
+    file: docker-cloud.yml
+  restart: 'no'
+
 takeda:
   extends:
     service: takeda
