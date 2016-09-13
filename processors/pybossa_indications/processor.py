@@ -97,11 +97,11 @@ def _submit_tasks(conf, tasks):
     logger.debug('{} tasks to be created'.format(len(cleaned_tasks)))
 
     for task in cleaned_tasks:
-        _submit_task(task, conf['PROJECT_ID'])
+        _submit_task(conf, task)
 
 
-def _submit_task(task, PROJECT_ID):
-    res = pbc.create_task(PROJECT_ID, task)
+def _submit_task(conf, task):
+    res = pbc.create_task(conf['PROJECT_ID'], task)
     if isinstance(res, dict) and res['status_code'] == 429:
         _pybossa_rate_limitation(conf, 'task')
-        _submit_task(task, PROJECT_ID)
+        _submit_task(task, conf['PROJECT_ID'])
